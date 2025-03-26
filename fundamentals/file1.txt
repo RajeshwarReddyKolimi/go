@@ -1,0 +1,2 @@
+Some random file with random text.
+We have multiple lines here.
