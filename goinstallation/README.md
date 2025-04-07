@@ -7,8 +7,24 @@
 - Set path using `export PATH=$PATH:/usr/local/go/bin`
 - Verified installation using `go version`
 - Created a folder goinstallation.
-- Run `go mod init goinstallation` which created a `go.mod` file.
+- Ran `go mod init goinstallation` which created a `go.mod` file.
 - Created a `main.go` file with main function which logs "Hello, Go!".
-- Run the file using `go run main.go`.
+- Ran the file using `go run main.go`.
 - Built the file using `go build` which created a binary file named `goinstallation`.
-- Run the built file using `./goinstallation`
+- Ran the built file using `./goinstallation`
+
+## Output
+
+```
+$ go mod init go-installation
+go: creating new go.mod: module go-installation
+go: to add module requirements and sums:
+        go mod tidy
+
+$ go run main.go
+Hello, Go!
+
+$ go build
+$ ./go-installation
+Hello, Go!
+```
