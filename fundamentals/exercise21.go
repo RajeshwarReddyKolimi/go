@@ -29,9 +29,9 @@ func checkSublist(arr1 []int, arr2 []int) bool {
 	return false
 }
 
-func Exercise2() {
-	arr1 := []int{1, 1, 2}
-	arr2 := []int{1, 1, 2, 1}
+func Exercise21() {
+	arr1 := []int{1, 1, 2, 1}
+	arr2 := []int{1, 1, 2}
 	l1 := len(arr1)
 	l2 := len(arr2)
 	if l1 == l2 {

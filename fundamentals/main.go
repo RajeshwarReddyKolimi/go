@@ -2,9 +2,9 @@ package main
 
 func main() {
 	// Exercise1()
-	// Exercise2()
-	// Exercise3()
-	// Exercise4()
-	// Exercise5()
-	Exercise6()
+	// Exercise21()
+	// Exercise22()
+	// Exercise23()
+	// Exercise24()
+	Exercise4()
 }

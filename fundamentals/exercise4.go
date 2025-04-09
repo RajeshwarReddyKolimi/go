@@ -1,22 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
 
 func Exercise4() {
-	grp := map[int][]string{
-		1:  {"A", "E", "I", "O", "U", "L", "N", "R", "S", "T"},
-		2:  {"D", "G"},
-		3:  {"B", "C", "M", "P"},
-		4:  {"F", "H", "V", "W", "Y"},
-		5:  {"K"},
-		8:  {"J", "X"},
-		10: {"Q", "Z"},
+	fmt.Print("Enter file path: ")
+	var path string
+	fmt.Scanln(&path)
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
 	}
-	res := make(map[string]int)
-	for k, v := range grp {
-		for _, t := range v {
-			res[t] = k
-		}
+	defer file.Close()
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		fmt.Println(sc.Text())
 	}
-	fmt.Println(res)
+	if err := sc.Err(); err != nil {
+		fmt.Println("Error reading file:", err)
+	}
 }

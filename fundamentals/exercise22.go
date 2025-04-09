@@ -6,14 +6,13 @@ import (
 	"strings"
 )
 
-func Exercise3() {
+func Exercise22() {
 	str := `"That's the password: 'PASSWORD 123'!", cried the Special Agent. So I fled.`
 	re := regexp.MustCompile(`\w+('\w+)?`)
-	lStr := strings.ToLower(str)
-	ar := re.FindAllString(lStr, -1)
+	ar := re.FindAllString(strings.ToLower(str), -1)
 	freq := make(map[string]int)
-	for s := range ar {
-		freq[ar[s]]++
+	for _, v := range ar {
+		freq[v]++
 	}
 	fmt.Println(freq)
 }
