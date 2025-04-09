@@ -15,8 +15,12 @@ type Car struct {
 	Bookings []models.Reservation
 }
 
-type ICar interface {
+type CarService interface {
+	AddCar(car Car) error
+	DeleteCar(carId int) error
+	ModifyCar(carId int, updatedCar Car) error
 	isCarAvailable(startTime time.Time, endTime time.Time) bool
+	SearchCars(search models.Search) ([]Car, error)
 }
 
 func (car *Car) IsAvailable(startTime time.Time, endTime time.Time, reservationId int) bool {

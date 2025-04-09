@@ -58,6 +58,16 @@
   - `printGrade(grade int, name string)`: Helper function to log the grade of the student.
 - `Exercise24()`: Creates a school instance, adds students, gets them in required manner
 
+### Exercise 3: Interfaces
+
+- Created 2 structs circle and rectangle.
+- Created an area method for both of them and called them from main.
+- Now instead of calling them separately we can club them using an interface and call with a loop.
+- So created an interface shape with area method.
+- Now any struct which implements area method is said to satisfy the interface.
+- So the variables c, r can be assigned to type shape.
+- Created a slice of type shape and called the area method for each shape.
+
 ### Exercise 4: File Reading
 
 - Takes the path from user console.

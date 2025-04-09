@@ -6,5 +6,7 @@ func main() {
 	// Exercise22()
 	// Exercise23()
 	// Exercise24()
-	Exercise4()
+	// Exercise3()
+	// Exercise4()
+
 }
