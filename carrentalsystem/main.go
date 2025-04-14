@@ -2,6 +2,7 @@ package main
 
 import (
 	"crs/models"
+	"crs/types"
 	"crs/usecases/car"
 	"crs/usecases/crs"
 	"crs/utils"
@@ -40,7 +41,6 @@ func main() {
 		wg.Done()
 	}()
 	go func() {
-
 		if _, err := crs.AddCar(car.Car{Make: "Toyota", Model: "Carolla", Year: 2022, License: "T321", Rent: 5000}); err != nil {
 			log.Println("Failed to add car:", err)
 		} else {
@@ -54,32 +54,45 @@ func main() {
 	} else {
 		log.Println("Added user successfully")
 	}
+	user, ok := crs.Users[1]
+	if !ok {
+		log.Println("User doen't exist")
+		return
+	}
+	crs.CurrentUser = user
 
-	crs.CurrentUser = crs.Users[0]
-
-	if _, err := crs.MakeReservation(1, utils.ParseStringToDate("2025-04-10"), utils.ParseStringToDate("2025-04-12")); err != nil {
+	if reservation, err := crs.MakeReservation(1, utils.ParseStringToDate("2025-04-10"), utils.ParseStringToDate("2025-04-12")); err != nil {
 		log.Println("Failed to make reservation:", err)
+	} else if reservation.Payment.Status == types.Failed {
+		log.Println("Payment failed")
 	} else {
 		log.Println("Reservation successful")
 	}
 
-	if _, err := crs.MakeReservation(2, utils.ParseStringToDate("2025-04-12"), utils.ParseStringToDate("2025-04-13")); err != nil {
+	if reservation, err := crs.MakeReservation(2, utils.ParseStringToDate("2025-04-12"), utils.ParseStringToDate("2025-04-13")); err != nil {
 		log.Println("Failed to make reservation:", err)
+	} else if reservation.Payment.Status == types.Failed {
+		log.Println("Payment failed")
 	} else {
 		log.Println("Reservation successful")
 	}
 
-	if _, err := crs.MakeReservation(3, utils.ParseStringToDate("2025-04-14"), utils.ParseStringToDate("2025-04-16")); err != nil {
+	if reservation, err := crs.MakeReservation(3, utils.ParseStringToDate("2025-04-14"), utils.ParseStringToDate("2025-04-16")); err != nil {
 		log.Println("Failed to make reservation:", err)
+	} else if reservation.Payment.Status == types.Failed {
+		log.Println("Payment failed")
 	} else {
 		log.Println("Reservation successful")
 	}
 
-	if _, err := crs.MakeReservation(1, utils.ParseStringToDate("2025-04-11"), utils.ParseStringToDate("2025-04-16")); err != nil {
+	if reservation, err := crs.MakeReservation(1, utils.ParseStringToDate("2025-04-11"), utils.ParseStringToDate("2025-04-16")); err != nil {
 		log.Println("Failed to make reservation:", err)
+	} else if reservation.Payment.Status == types.Failed {
+		log.Println("Payment failed")
 	} else {
 		log.Println("Reservation successful")
 	}
+
 	if bookings, err := crs.ShowReservations(); err != nil {
 		log.Println("Failed to show bookings:", err)
 	} else {
@@ -116,7 +129,7 @@ func main() {
 		}
 	}
 
-	if cars, err := crs.SearchCars(models.Search{MinPrice: 3000, MaxPrice: 5000, StartTime: utils.ParseStringToDate("2025-04-10"), EndTime: utils.ParseStringToDate("2025-04-12")}); err != nil {
+	if cars, err := crs.SearchCars(3000, 5000, utils.ParseStringToDate("2025-04-10"), utils.ParseStringToDate("2025-04-12")); err != nil {
 		log.Println("Failed to search cars:", err)
 	} else {
 		log.Println("Filtered cars:")

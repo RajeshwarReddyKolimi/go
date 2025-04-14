@@ -2,6 +2,7 @@ package crs
 
 import (
 	"crs/models"
+	"crs/types"
 	"crs/usecases/car"
 	"crs/utils"
 	"errors"
@@ -17,6 +18,7 @@ type CarRentalSystem struct {
 	lastCarId         int
 	lastUserId        int
 	lastReservationId int
+	lastPaymentId     int
 	mu                *sync.Mutex
 	CurrentUser       models.User
 }
@@ -34,7 +36,7 @@ type ICRS interface {
 	CancelReservation(reservationId int) error
 	ModifyReservation(reservationId int, reservation models.Reservation) (models.Reservation, error)
 
-	SearchCars(search models.Search) ([]car.Car, error)
+	SearchCars(types.Search) ([]car.Car, error)
 	ShowReservations() ([]models.Reservation, error)
 }
 
@@ -48,13 +50,20 @@ func New() *CarRentalSystem {
 	}
 }
 
+func (crs *CarRentalSystem) getCarByLicense(license string) car.Car {
+	for _, car := range crs.Cars {
+		if car.License == license {
+			return car
+		}
+	}
+	return car.Car{}
+}
+
 func (crs *CarRentalSystem) AddCar(newCar car.Car) (car.Car, error) {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
-	for _, c := range crs.Cars {
-		if c.License == newCar.License {
-			return car.Car{}, fmt.Errorf("Car license %v already exists", newCar.License)
-		}
+	if existingCar := crs.getCarByLicense(newCar.License); existingCar.Id != 0 {
+		return car.Car{}, fmt.Errorf("Car with license %v already exists", newCar.License)
 	}
 	crs.lastCarId++
 	id := crs.lastCarId
@@ -71,17 +80,6 @@ func (crs *CarRentalSystem) DeleteCar(carId int) error {
 				delete(crs.Reservations, reservation.Id)
 			}
 		}
-		for userId, user := range crs.Users {
-			updatedReservations := []models.Reservation{}
-			for _, reservation := range user.Reservations {
-				if reservation.CarId != carId {
-					updatedReservations = append(updatedReservations, reservation)
-				}
-			}
-			user.Reservations = updatedReservations
-			crs.Users[userId] = user
-		}
-
 		return nil
 	} else {
 		return fmt.Errorf("Car with id %v does not exist", carId)
@@ -90,16 +88,16 @@ func (crs *CarRentalSystem) DeleteCar(carId int) error {
 
 func (crs *CarRentalSystem) ModifyCar(carId int, updatedCar car.Car) (car.Car, error) {
 	if existingCar, ok := crs.Cars[carId]; ok {
-		if &updatedCar.Make != nil {
+		if updatedCar.Make != "" {
 			existingCar.Make = updatedCar.Make
 		}
-		if &updatedCar.Model != nil {
+		if updatedCar.Model != "" {
 			existingCar.Model = updatedCar.Model
 		}
-		if &updatedCar.Year != nil {
+		if updatedCar.Year != 0 {
 			existingCar.Year = updatedCar.Year
 		}
-		if &updatedCar.Rent != nil {
+		if updatedCar.Rent != 0 {
 			existingCar.Rent = updatedCar.Rent
 		}
 		crs.Cars[carId] = existingCar
@@ -108,13 +106,20 @@ func (crs *CarRentalSystem) ModifyCar(carId int, updatedCar car.Car) (car.Car, e
 	return car.Car{}, fmt.Errorf("Car with id %v does not exist", carId)
 }
 
+func (crs *CarRentalSystem) getUserByEmail(email string) models.User {
+	for _, user := range crs.Users {
+		if user.Email == email {
+			return user
+		}
+	}
+	return models.User{}
+}
+
 func (crs *CarRentalSystem) AddUser(user models.User) (models.User, error) {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
-	for _, u := range crs.Users {
-		if u.Email == user.Email {
-			return models.User{}, fmt.Errorf("User with email %v already exists", user.Email)
-		}
+	if existingUser := crs.getUserByEmail(user.Email); existingUser.Id != 0 {
+		return models.User{}, fmt.Errorf("User with email %v already exists", user.Email)
 	}
 	crs.lastUserId++
 	id := crs.lastUserId
@@ -142,13 +147,13 @@ func (crs *CarRentalSystem) DeleteUser(id int) error {
 
 func (crs *CarRentalSystem) ModifyUser(userId int, updatedUser models.User) (models.User, error) {
 	if user, ok := crs.Users[userId]; ok {
-		if &updatedUser.Name != nil {
+		if updatedUser.Name != "" {
 			user.Name = updatedUser.Name
 		}
-		if &updatedUser.Email != nil {
+		if updatedUser.Email != "" {
 			user.Email = updatedUser.Email
 		}
-		if &updatedUser.License != nil {
+		if updatedUser.License != "" {
 			user.License = updatedUser.License
 		}
 		crs.Users[userId] = user
@@ -160,19 +165,55 @@ func (crs *CarRentalSystem) ModifyUser(userId int, updatedUser models.User) (mod
 func (crs *CarRentalSystem) MakeReservation(carId int, startTime time.Time, endTime time.Time) (models.Reservation, error) {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
-	if car, ok := crs.Cars[carId]; ok && car.IsAvailable(startTime, endTime, -1) {
+	fmt.Println(crs.CurrentUser)
+	if crs.CurrentUser.Id == 0 {
+		return models.Reservation{}, fmt.Errorf("No user logged in")
+	}
+	if car, ok := crs.Cars[carId]; ok && car.IsAvailable(crs.Reservations, startTime, endTime, -1) {
 		crs.lastReservationId++
+		crs.lastPaymentId++
 		reservationId := crs.lastReservationId
-		reservation := models.Reservation{Id: reservationId, UserId: crs.CurrentUser.Id, CarId: car.Id, StartTime: startTime, EndTime: endTime, Cost: car.Rent * utils.TotalDays(startTime, endTime)}
+		cost := car.Rent * utils.TotalDays(startTime, endTime)
+		payment := &models.Payment{
+			Id:            crs.lastPaymentId,
+			ReservationId: reservationId,
+			Amount:        cost,
+			Status:        types.Pending,
+		}
+		reservation := models.Reservation{
+			Id:        reservationId,
+			UserId:    crs.CurrentUser.Id,
+			CarId:     car.Id,
+			StartTime: startTime,
+			EndTime:   endTime,
+			Cost:      cost,
+			Payment:   payment,
+			Status:    types.Inactive,
+		}
+		if utils.GetRandomStatus() {
+			payment.Status = types.Completed
+			reservation.Status = types.Active
+		} else {
+			payment.Status = types.Failed
+		}
 		crs.Reservations[reservationId] = reservation
-		car.Reservations = append(car.Reservations, reservation)
-		crs.Cars[carId] = car
-		crs.CurrentUser.Reservations = append(crs.CurrentUser.Reservations, reservation)
-		crs.Users[crs.CurrentUser.Id] = crs.CurrentUser
 		return reservation, nil
 	} else {
 		return models.Reservation{}, errors.New("Car not available")
 	}
+}
+
+func (crs *CarRentalSystem) cancelPayment(payment *models.Payment) error {
+	if payment.Id != 0 && payment.Status == types.Completed {
+		payment.Status = types.RefundPending
+		if utils.GetRandomStatus() {
+			payment.Status = types.RefundCompleted
+			return nil
+		}
+		payment.Status = types.RefundRejected
+		return fmt.Errorf("Refund rejected")
+	}
+	return fmt.Errorf("Invalid input")
 }
 
 func (crs *CarRentalSystem) CancelReservation(reservationId int) error {
@@ -185,29 +226,18 @@ func (crs *CarRentalSystem) CancelReservation(reservationId int) error {
 	if reservation.UserId != crs.CurrentUser.Id {
 		return fmt.Errorf("Reservation with id %v does not belong to current user", reservationId)
 	}
-	car := crs.Cars[reservation.CarId]
-	for ind, reservation := range car.Reservations {
-		if reservation.Id == reservationId {
-			car.Reservations = append(car.Reservations[:ind], car.Reservations[ind+1:]...)
-			break
-		}
+	if er := crs.cancelPayment(reservation.Payment); er != nil {
+		return er
 	}
-	crs.Cars[reservation.CarId] = car
-	for ind, reservation := range crs.CurrentUser.Reservations {
-		if reservation.Id == reservationId {
-			crs.CurrentUser.Reservations = append(crs.CurrentUser.Reservations[:ind], crs.CurrentUser.Reservations[ind+1:]...)
-			break
-		}
-	}
-	crs.Users[crs.CurrentUser.Id] = crs.CurrentUser
-	delete(crs.Reservations, reservation.Id)
+	reservation.Status = types.Inactive
+	crs.Reservations[reservationId] = reservation
 	return nil
 }
 
 func (crs *CarRentalSystem) ModifyReservation(reservationId int, reservation models.Reservation) (models.Reservation, error) {
 	crs.mu.Lock()
 	defer crs.mu.Unlock()
-	_, ok := crs.Reservations[reservationId]
+	existingReservation, ok := crs.Reservations[reservationId]
 	if !ok {
 		return models.Reservation{}, fmt.Errorf("Reservation with id %v does not exist", reservationId)
 	}
@@ -216,7 +246,7 @@ func (crs *CarRentalSystem) ModifyReservation(reservationId int, reservation mod
 	}
 	carId := reservation.CarId
 	if carId == 0 {
-		carId = crs.Reservations[reservationId].CarId
+		carId = existingReservation.CarId
 	}
 	car, ok := crs.Cars[carId]
 	if !ok {
@@ -224,40 +254,45 @@ func (crs *CarRentalSystem) ModifyReservation(reservationId int, reservation mod
 	}
 	startTime := reservation.StartTime
 	if startTime.IsZero() {
-		startTime = crs.Reservations[reservationId].StartTime
+		startTime = existingReservation.StartTime
 	}
 	endTime := reservation.EndTime
 	if endTime.IsZero() {
-		endTime = crs.Reservations[reservationId].EndTime
+		endTime = existingReservation.EndTime
 	}
 
 	cost := car.Rent * utils.TotalDays(startTime, endTime)
-	if car.IsAvailable(startTime, endTime, reservationId) {
-		crs.Reservations[reservationId] = models.Reservation{
-			Id:        reservationId,
-			CarId:     carId,
-			StartTime: startTime,
-			EndTime:   endTime,
-			Cost:      cost,
+	if car.IsAvailable(crs.Reservations, startTime, endTime, reservationId) {
+		if cost != existingReservation.Cost {
+			payment := existingReservation.Payment
+			if utils.GetRandomStatus() {
+				existingReservation.CarId = carId
+				existingReservation.StartTime = startTime
+				existingReservation.EndTime = endTime
+				existingReservation.Cost = cost
+				crs.Reservations[reservationId] = existingReservation
+				payment.Status = types.Completed
+				crs.Reservations[reservationId] = existingReservation
+				return existingReservation, nil
+			}
+			existingReservation.Status = types.Inactive
+			crs.Reservations[reservationId] = existingReservation
+			return existingReservation, fmt.Errorf("Cannot modify reservation")
 		}
-		car.Reservations = append(car.Reservations, crs.Reservations[reservationId])
-		crs.Cars[carId] = car
-
-		crs.CurrentUser.Reservations = append(crs.CurrentUser.Reservations, crs.Reservations[reservationId])
-		crs.Users[crs.CurrentUser.Id] = crs.CurrentUser
-		return reservation, nil
+		existingReservation.CarId = carId
+		existingReservation.StartTime = startTime
+		existingReservation.EndTime = endTime
+		existingReservation.Cost = cost
+		crs.Reservations[reservationId] = existingReservation
+		return existingReservation, nil
 	}
-	return models.Reservation{}, fmt.Errorf("Car not available")
+	return existingReservation, fmt.Errorf("Car not available")
 }
 
-func (crs *CarRentalSystem) SearchCars(search models.Search) ([]car.Car, error) {
+func (crs *CarRentalSystem) SearchCars(minPrice, maxPrice int, startTime, endTime time.Time) ([]car.Car, error) {
 	filteredCars := []car.Car{}
-	minPrice := search.MinPrice
-	maxPrice := search.MaxPrice
-	startTime := search.StartTime
-	endTime := search.EndTime
 	for _, car := range crs.Cars {
-		if (minPrice == 0 || car.Rent >= minPrice) && (maxPrice == 0 || car.Rent <= maxPrice) && (startTime.IsZero() || endTime.IsZero() || car.IsAvailable(startTime, endTime, -1)) {
+		if (minPrice == 0 || car.Rent >= minPrice) && (maxPrice == 0 || car.Rent <= maxPrice) && (startTime.IsZero() || endTime.IsZero() || car.IsAvailable(crs.Reservations, startTime, endTime, -1)) {
 			filteredCars = append(filteredCars, car)
 		}
 	}
@@ -265,8 +300,14 @@ func (crs *CarRentalSystem) SearchCars(search models.Search) ([]car.Car, error) 
 }
 
 func (crs *CarRentalSystem) ShowReservations() ([]models.Reservation, error) {
-	if len(crs.CurrentUser.Reservations) == 0 {
+	myReservations := []models.Reservation{}
+	for _, reservation := range crs.Reservations {
+		if reservation.UserId == crs.CurrentUser.Id {
+			myReservations = append(myReservations, reservation)
+		}
+	}
+	if len(myReservations) == 0 {
 		return []models.Reservation{}, nil
 	}
-	return crs.CurrentUser.Reservations, nil
+	return myReservations, nil
 }
