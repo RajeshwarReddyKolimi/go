@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func Exercise23() {
+func ETL() {
 	grp := map[int][]string{
 		1:  {"A", "E", "I", "O", "U", "L", "N", "R", "S", "T"},
 		2:  {"D", "G"},

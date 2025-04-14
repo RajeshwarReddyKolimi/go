@@ -25,7 +25,7 @@ func (r rectangle) area() float64 {
 func (c circle) area() float64 {
 	return math.Pi * c.radius * c.radius
 }
-func Exercise3() {
+func InterfaceImplementation() {
 	c := circle{radius: 10}
 	r := rectangle{length: 10, width: 20}
 

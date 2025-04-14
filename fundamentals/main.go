@@ -1,12 +1,11 @@
 package main
 
 func main() {
-	// Exercise1()
-	// Exercise21()
-	// Exercise22()
-	// Exercise23()
-	// Exercise24()
-	// Exercise3()
-	// Exercise4()
-
+	Calculate()
+	Sublist()
+	WordCount()
+	ETL()
+	GradeSchool()
+	InterfaceImplementation()
+	FileReading()
 }

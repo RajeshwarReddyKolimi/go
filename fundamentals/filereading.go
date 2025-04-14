@@ -23,7 +23,7 @@ func readFile(path string) error {
 	}
 	return nil
 }
-func Exercise4() {
+func FileReading() {
 	fmt.Print("Enter file path: ")
 	var path string
 	fmt.Scanln(&path)

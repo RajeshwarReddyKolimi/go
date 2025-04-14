@@ -38,7 +38,7 @@ func divide(a, b float64) float64 {
 	return quotient
 }
 
-func Exercise1() {
+func Calculate() {
 	var n1 float64
 	var n2 float64
 	var op string

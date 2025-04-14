@@ -50,7 +50,7 @@ func (s *School) getGradeOfAStudent(student string) int {
 	return -1
 }
 
-func Exercise24() {
+func GradeSchool() {
 	school := New()
 	school.addStudent("Nemo", 1)
 	school.addStudent("Jim", 2)
