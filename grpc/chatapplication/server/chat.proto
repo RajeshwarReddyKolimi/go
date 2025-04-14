@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package chatService;
+
+option go_package="/protos";
+
+service ChatService {
+    rpc Register (RegisterRequest) returns (RegisterResponse);
+    rpc SendMessage (MessageRequest) returns (MessageResponse);
+    rpc GetAllMessages (EmptyRequest) returns (GetMessageResponse);
+    rpc GetMyMessages (GetMessageRequest) returns (GetMessageResponse);
+    rpc GetUsers (EmptyRequest) returns (GetUserResponse);
+    rpc CreateChatRoom (CreateChatRoomRequest) returns (CreateChatRoomResponse);
+    rpc JoinChatRoom (JoinChatRoomRequest) returns (stream GetChatRoomUpdatesResponse);
+}
+
+message EmptyRequest {}
+
+message User {
+    int32 Id = 1;
+    string name = 2;
+    string gender = 3;
+}
+
+message Message {
+    int32 Id = 1;
+    User sender = 2;
+    User receiver = 3;
+    string text = 4;
+    string time = 5;
+}
+
+message RegisterRequest {
+    string name = 1;
+    string gender = 2;
+}
+
+message RegisterResponse {
+    int32 status = 1;
+}
+
+message MessageRequest {
+    string text = 1;
+    int32 senderId = 2;
+    int32 receiverId = 3;
+}
+
+message MessageResponse {
+    int32 status = 1;
+}
+
+message GetMessageRequest {
+    int32 userId = 1;
+}
+
+message GetMessageResponse {
+    repeated Message messages = 1;
+}
+
+message GetUserResponse {
+    repeated User users = 1;
+}
+
+message JoinChatRoomRequest {
+    int32 chatId = 1;
+}
+
+message JoinChatRoomUpdatesResponse {
+    repeated Message messages = 1;
+}
+
