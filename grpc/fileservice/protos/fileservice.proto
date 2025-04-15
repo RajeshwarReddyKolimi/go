@@ -1,0 +1,40 @@
+syntax="proto3";
+
+package fileservice;
+
+option go_package="/protos";
+
+service FileService {
+    rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
+    rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse);
+    rpc GetMetaData(MetaDataRequest) returns (MetaDataResponse);
+}
+
+message UploadFileRequest {
+    string filename = 1;
+    bytes data = 2;
+}
+
+message UploadFileResponse {
+    string message = 1;
+}
+
+message DownloadFileRequest {
+    string filename = 1;
+    bytes data = 2;
+}
+
+message DownloadFileResponse {
+    bytes data = 1;
+}
+
+message MetaDataRequest {
+    string filename = 1;
+}
+
+message MetaDataResponse {
+    string filename = 1;
+    int64 size = 2; 
+    string mimeType = 3;
+    string createdAt = 4;
+}
