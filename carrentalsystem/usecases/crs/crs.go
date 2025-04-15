@@ -302,7 +302,7 @@ func (crs *CarRentalSystem) SearchCars(minPrice, maxPrice int, startTime, endTim
 func (crs *CarRentalSystem) ShowReservations() ([]models.Reservation, error) {
 	myReservations := []models.Reservation{}
 	for _, reservation := range crs.Reservations {
-		if reservation.UserId == crs.CurrentUser.Id {
+		if reservation.UserId == crs.CurrentUser.Id && reservation.Status == types.Active {
 			myReservations = append(myReservations, reservation)
 		}
 	}
