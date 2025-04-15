@@ -1,0 +1,57 @@
+syntax="proto3";
+
+package chatservice;
+
+option go_package="/protos";
+
+service ChatService {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc SendMessage(MessageRequest) returns (MessageResponse);
+    rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
+    rpc JoinRoom(JoinRoomRequest) returns (stream ChatResponse);
+    rpc Chat(stream ChatRequest) returns (stream ChatResponse);
+}
+
+message RegisterRequest {
+    string name = 1;
+}
+
+message RegisterResponse{
+    int32 userId = 1;
+}
+
+message MessageRequest {
+    string text = 1;
+    int32 senderId = 2;
+    int32 receiverId = 3;
+}
+
+message MessageResponse {
+    string message = 1;
+}
+
+message CreateRoomRequest {
+    string name = 1;
+    string description = 2;
+}
+
+message CreateRoomResponse {
+    int32 roomId = 1;
+    string name = 2;
+}
+
+message JoinRoomRequest {
+    int32 userId = 1;
+    int32 roomId = 2;
+}
+
+message ChatRequest {
+    string text = 1;
+    int32 senderId = 2;
+    int32 roomId = 3;
+}
+
+message ChatResponse {
+    string text = 1;
+    int32 senderId = 2;
+}

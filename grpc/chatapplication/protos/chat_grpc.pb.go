@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.6.1
-// source: chat.proto
+// source: protos/chat.proto
 
 package protos
 
@@ -19,12 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Register_FullMethodName       = "/chatService.ChatService/Register"
-	ChatService_SendMessage_FullMethodName    = "/chatService.ChatService/SendMessage"
-	ChatService_GetAllMessages_FullMethodName = "/chatService.ChatService/GetAllMessages"
-	ChatService_GetMyMessages_FullMethodName  = "/chatService.ChatService/GetMyMessages"
-	ChatService_GetUsers_FullMethodName       = "/chatService.ChatService/GetUsers"
-	ChatService_JoinChatRoom_FullMethodName   = "/chatService.ChatService/JoinChatRoom"
+	ChatService_Register_FullMethodName    = "/chatservice.ChatService/Register"
+	ChatService_SendMessage_FullMethodName = "/chatservice.ChatService/SendMessage"
+	ChatService_CreateRoom_FullMethodName  = "/chatservice.ChatService/CreateRoom"
+	ChatService_JoinRoom_FullMethodName    = "/chatservice.ChatService/JoinRoom"
+	ChatService_Chat_FullMethodName        = "/chatservice.ChatService/Chat"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -33,10 +32,9 @@ const (
 type ChatServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	SendMessage(ctx context.Context, in *MessageRequest, opts ...grpc.CallOption) (*MessageResponse, error)
-	GetAllMessages(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
-	GetMyMessages(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error)
-	GetUsers(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
-	JoinChatRoom(ctx context.Context, in *ChatRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatRoomUpdatesResponse], error)
+	CreateRoom(ctx context.Context, in *CreateRoomRequest, opts ...grpc.CallOption) (*CreateRoomResponse, error)
+	JoinRoom(ctx context.Context, in *JoinRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatResponse], error)
+	Chat(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChatRequest, ChatResponse], error)
 }
 
 type chatServiceClient struct {
@@ -67,43 +65,23 @@ func (c *chatServiceClient) SendMessage(ctx context.Context, in *MessageRequest,
 	return out, nil
 }
 
-func (c *chatServiceClient) GetAllMessages(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetMessageResponse, error) {
+func (c *chatServiceClient) CreateRoom(ctx context.Context, in *CreateRoomRequest, opts ...grpc.CallOption) (*CreateRoomResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMessageResponse)
-	err := c.cc.Invoke(ctx, ChatService_GetAllMessages_FullMethodName, in, out, cOpts...)
+	out := new(CreateRoomResponse)
+	err := c.cc.Invoke(ctx, ChatService_CreateRoom_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *chatServiceClient) GetMyMessages(ctx context.Context, in *GetMessageRequest, opts ...grpc.CallOption) (*GetMessageResponse, error) {
+func (c *chatServiceClient) JoinRoom(ctx context.Context, in *JoinRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMessageResponse)
-	err := c.cc.Invoke(ctx, ChatService_GetMyMessages_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_JoinRoom_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *chatServiceClient) GetUsers(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*GetUserResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserResponse)
-	err := c.cc.Invoke(ctx, ChatService_GetUsers_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *chatServiceClient) JoinChatRoom(ctx context.Context, in *ChatRoomRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatRoomUpdatesResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_JoinChatRoom_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[ChatRoomRequest, ChatRoomUpdatesResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[JoinRoomRequest, ChatResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -114,7 +92,20 @@ func (c *chatServiceClient) JoinChatRoom(ctx context.Context, in *ChatRoomReques
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ChatService_JoinChatRoomClient = grpc.ServerStreamingClient[ChatRoomUpdatesResponse]
+type ChatService_JoinRoomClient = grpc.ServerStreamingClient[ChatResponse]
+
+func (c *chatServiceClient) Chat(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ChatRequest, ChatResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[1], ChatService_Chat_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ChatRequest, ChatResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_ChatClient = grpc.BidiStreamingClient[ChatRequest, ChatResponse]
 
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
@@ -122,10 +113,9 @@ type ChatService_JoinChatRoomClient = grpc.ServerStreamingClient[ChatRoomUpdates
 type ChatServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	SendMessage(context.Context, *MessageRequest) (*MessageResponse, error)
-	GetAllMessages(context.Context, *EmptyRequest) (*GetMessageResponse, error)
-	GetMyMessages(context.Context, *GetMessageRequest) (*GetMessageResponse, error)
-	GetUsers(context.Context, *EmptyRequest) (*GetUserResponse, error)
-	JoinChatRoom(*ChatRoomRequest, grpc.ServerStreamingServer[ChatRoomUpdatesResponse]) error
+	CreateRoom(context.Context, *CreateRoomRequest) (*CreateRoomResponse, error)
+	JoinRoom(*JoinRoomRequest, grpc.ServerStreamingServer[ChatResponse]) error
+	Chat(grpc.BidiStreamingServer[ChatRequest, ChatResponse]) error
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -142,17 +132,14 @@ func (UnimplementedChatServiceServer) Register(context.Context, *RegisterRequest
 func (UnimplementedChatServiceServer) SendMessage(context.Context, *MessageRequest) (*MessageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendMessage not implemented")
 }
-func (UnimplementedChatServiceServer) GetAllMessages(context.Context, *EmptyRequest) (*GetMessageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAllMessages not implemented")
+func (UnimplementedChatServiceServer) CreateRoom(context.Context, *CreateRoomRequest) (*CreateRoomResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRoom not implemented")
 }
-func (UnimplementedChatServiceServer) GetMyMessages(context.Context, *GetMessageRequest) (*GetMessageResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetMyMessages not implemented")
+func (UnimplementedChatServiceServer) JoinRoom(*JoinRoomRequest, grpc.ServerStreamingServer[ChatResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method JoinRoom not implemented")
 }
-func (UnimplementedChatServiceServer) GetUsers(context.Context, *EmptyRequest) (*GetUserResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUsers not implemented")
-}
-func (UnimplementedChatServiceServer) JoinChatRoom(*ChatRoomRequest, grpc.ServerStreamingServer[ChatRoomUpdatesResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method JoinChatRoom not implemented")
+func (UnimplementedChatServiceServer) Chat(grpc.BidiStreamingServer[ChatRequest, ChatResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Chat not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -211,76 +198,47 @@ func _ChatService_SendMessage_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_GetAllMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyRequest)
+func _ChatService_CreateRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoomRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChatServiceServer).GetAllMessages(ctx, in)
+		return srv.(ChatServiceServer).CreateRoom(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChatService_GetAllMessages_FullMethodName,
+		FullMethod: ChatService_CreateRoom_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).GetAllMessages(ctx, req.(*EmptyRequest))
+		return srv.(ChatServiceServer).CreateRoom(ctx, req.(*CreateRoomRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChatService_GetMyMessages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMessageRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).GetMyMessages(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_GetMyMessages_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).GetMyMessages(ctx, req.(*GetMessageRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ChatService_GetUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChatServiceServer).GetUsers(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChatService_GetUsers_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChatServiceServer).GetUsers(ctx, req.(*EmptyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ChatService_JoinChatRoom_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ChatRoomRequest)
+func _ChatService_JoinRoom_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(JoinRoomRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ChatServiceServer).JoinChatRoom(m, &grpc.GenericServerStream[ChatRoomRequest, ChatRoomUpdatesResponse]{ServerStream: stream})
+	return srv.(ChatServiceServer).JoinRoom(m, &grpc.GenericServerStream[JoinRoomRequest, ChatResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ChatService_JoinChatRoomServer = grpc.ServerStreamingServer[ChatRoomUpdatesResponse]
+type ChatService_JoinRoomServer = grpc.ServerStreamingServer[ChatResponse]
+
+func _ChatService_Chat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ChatServiceServer).Chat(&grpc.GenericServerStream[ChatRequest, ChatResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_ChatServer = grpc.BidiStreamingServer[ChatRequest, ChatResponse]
 
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChatService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "chatService.ChatService",
+	ServiceName: "chatservice.ChatService",
 	HandlerType: (*ChatServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -292,24 +250,22 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_SendMessage_Handler,
 		},
 		{
-			MethodName: "GetAllMessages",
-			Handler:    _ChatService_GetAllMessages_Handler,
-		},
-		{
-			MethodName: "GetMyMessages",
-			Handler:    _ChatService_GetMyMessages_Handler,
-		},
-		{
-			MethodName: "GetUsers",
-			Handler:    _ChatService_GetUsers_Handler,
+			MethodName: "CreateRoom",
+			Handler:    _ChatService_CreateRoom_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "JoinChatRoom",
-			Handler:       _ChatService_JoinChatRoom_Handler,
+			StreamName:    "JoinRoom",
+			Handler:       _ChatService_JoinRoom_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "Chat",
+			Handler:       _ChatService_Chat_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
 	},
-	Metadata: "chat.proto",
+	Metadata: "protos/chat.proto",
 }

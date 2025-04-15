@@ -1,10 +1,8 @@
 package main
 
 import (
-	models "chatSystem/server/models"
-	pb "chatSystem/server/protos"
+	pb "chatservice/protos"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -13,123 +11,204 @@ import (
 	"google.golang.org/grpc"
 )
 
-type ChatServiceServer struct {
-	pb.UnimplementedChatServiceServer
-	mu sync.Mutex
+type User struct {
+	Id   int
+	Name string
 }
 
-var (
-	users         = make(map[int]models.User)
-	messages      = make(map[int]models.Message)
-	lastUserId    int
-	lastMessageId int
+type Room struct {
+	Id          int
+	Name        string
+	Description string
+	Users       []User
+}
+
+type MessageType int
+
+const (
+	Private MessageType = iota
+	Public
 )
 
-func getUserResponse(user models.User) *pb.User {
-	return &pb.User{
-		Id:     int32(user.Id),
-		Name:   user.Name,
-		Gender: user.Gender,
-	}
+type Message struct {
+	Id       int
+	Sender   User
+	Receiver User
+	Text     string
+	Type     MessageType
 }
 
-func getMessageResponse(message models.Message) *pb.Message {
-	return &pb.Message{
-		Id:       int32(message.Id),
-		Text:     message.Text,
-		Sender:   getUserResponse(message.Sender),
-		Receiver: getUserResponse(message.Receiver),
-		Time:     message.Time,
+type ChatServiceServer struct {
+	pb.UnimplementedChatServiceServer
+	mu            sync.Mutex
+	users         []User
+	rooms         []Room
+	messages      []Message
+	lastUserId    int
+	lastRoomId    int
+	lastMessageId int
+
+	roomStreams map[int]map[int]chan *pb.ChatResponse
+}
+
+func NewChatServiceServer() *ChatServiceServer {
+	return &ChatServiceServer{
+		roomStreams: make(map[int]map[int]chan *pb.ChatResponse),
 	}
 }
 
 func main() {
-	fmt.Println("Server starting")
-	listener, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Fatalf("Error listening: %v", err)
-		return
+		log.Fatalf("failed to listen: %v", err)
 	}
-	fmt.Println("Listening")
 	server := grpc.NewServer()
-	pb.RegisterChatServiceServer(server, &ChatServiceServer{})
-
-	if err := server.Serve(listener); err != nil {
-		log.Fatalf("Error serving: %v", err)
-		return
+	pb.RegisterChatServiceServer(server, NewChatServiceServer())
+	if err := server.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
 	}
-	fmt.Println("Server is running")
 }
 
-func (c *ChatServiceServer) Register(cts context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, user := range users {
-		if user.Name == req.Name {
-			return &pb.RegisterResponse{Status: 409}, errors.New("User name already exists")
+func (cs *ChatServiceServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	cs.lastUserId++
+	user := User{
+		Id:   int(cs.lastUserId),
+		Name: req.Name,
+	}
+	cs.users = append(cs.users, user)
+	fmt.Println(cs.lastUserId)
+	return &pb.RegisterResponse{UserId: int32(cs.lastUserId)}, nil
+}
+
+func (cs *ChatServiceServer) getUser(userId int) (User, bool) {
+	for _, user := range cs.users {
+		if user.Id == userId {
+			return user, true
 		}
 	}
-	if req.Name == " " || req.Gender == "" {
-		return &pb.RegisterResponse{Status: 409}, errors.New("Field cannot be empty")
-	}
-	lastUserId++
-	user := models.User{
-		Id:     lastUserId,
-		Name:   req.Name,
-		Gender: req.Gender,
-	}
-	users[lastUserId] = user
-	return &pb.RegisterResponse{Status: 200}, nil
+	return User{}, false
 }
-
-func (c *ChatServiceServer) GetUsers(cts context.Context, req *pb.EmptyRequest) (*pb.GetUserResponse, error) {
-	modifiedUsers := make([]*pb.User, 0)
-	for _, user := range users {
-		modifiedUsers = append(modifiedUsers, getUserResponse(user))
-	}
-	return &pb.GetUserResponse{Users: modifiedUsers}, nil
-}
-
-func (c *ChatServiceServer) GetAllMessages(cts context.Context, req *pb.EmptyRequest) (*pb.GetMessageResponse, error) {
-	modifiedMessages := make([]*pb.Message, 0)
-	for _, message := range messages {
-		modifiedMessages = append(modifiedMessages, getMessageResponse(message))
-	}
-	return &pb.GetMessageResponse{Messages: modifiedMessages}, nil
-}
-
-func (c *ChatServiceServer) GetMyMessages(cts context.Context, req *pb.GetMessageRequest) (*pb.GetMessageResponse, error) {
-	modifiedMessages := make([]*pb.Message, 0)
-	for _, message := range messages {
-		if message.Sender.Id == int(req.UserId) || message.Receiver.Id == int(req.UserId) {
-			modifiedMessages = append(modifiedMessages, getMessageResponse(message))
-		}
-	}
-	return &pb.GetMessageResponse{Messages: modifiedMessages}, nil
-}
-
-func (c *ChatServiceServer) SendMessage(cts context.Context, req *pb.MessageRequest) (*pb.MessageResponse, error) {
+func (cs *ChatServiceServer) SendMessage(cts context.Context, req *pb.MessageRequest) (*pb.MessageResponse, error) {
 	if req.SenderId == req.ReceiverId {
-		return &pb.MessageResponse{}, errors.New("Sender and receiver cannot be the same")
+		return &pb.MessageResponse{}, fmt.Errorf("Sender and receiver cannot be the same")
 	}
-	sender, senderExists := users[int(req.SenderId)]
-	receiver, receiverExists := users[int(req.ReceiverId)]
+	sender, senderExists := cs.getUser(int(req.SenderId))
+	receiver, receiverExists := cs.getUser(int(req.ReceiverId))
 	if !senderExists || !receiverExists {
-		return &pb.MessageResponse{}, errors.New("Invalid user details")
+		return &pb.MessageResponse{}, fmt.Errorf("Invalid user details")
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	lastMessageId++
-	message := models.Message{
-		Id:       lastUserId,
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.lastMessageId++
+	message := Message{
+		Id:       cs.lastMessageId,
 		Sender:   sender,
 		Receiver: receiver,
 		Text:     req.Text,
+		Type:     Private,
 	}
-	messages[lastMessageId] = message
-	return &pb.MessageResponse{Status: 200}, nil
+	cs.messages = append(cs.messages, message)
+	return &pb.MessageResponse{Message: "Message sent"}, nil
 }
 
-func (c *ChatServiceServer) CreateChatRoom(ctx context.Context, req *pb.CreateChatRoomRequest) (*pb.CreateChatRoomResponse, error) {
+func (cs *ChatServiceServer) CreateRoom(ctx context.Context, req *pb.CreateRoomRequest) (*pb.CreateRoomResponse, error) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.lastRoomId++
+	room := Room{
+		Id:          cs.lastRoomId,
+		Name:        req.Name,
+		Description: req.Description,
+		Users:       []User{},
+	}
+	cs.rooms = append(cs.rooms, room)
+	return &pb.CreateRoomResponse{RoomId: int32(cs.lastRoomId)}, nil
+}
 
+func (cs *ChatServiceServer) getRoom(roomId int) (Room, bool) {
+	for _, room := range cs.rooms {
+		if room.Id == roomId {
+			return room, true
+		}
+	}
+	return Room{}, false
+}
+func (cs *ChatServiceServer) JoinRoom(req *pb.JoinRoomRequest, stream pb.ChatService_JoinRoomServer) error {
+	cs.mu.Lock()
+
+	room, roomExists := cs.getRoom(int(req.RoomId))
+	user, userExists := cs.getUser(int(req.UserId))
+	if !roomExists || !userExists {
+		cs.mu.Unlock()
+		return fmt.Errorf("invalid room or user details")
+	}
+
+	room.Users = append(room.Users, user)
+
+	if cs.roomStreams[room.Id] == nil {
+		cs.roomStreams[room.Id] = make(map[int]chan *pb.ChatResponse)
+	}
+	msgCh := make(chan *pb.ChatResponse, 100)
+	cs.roomStreams[room.Id][user.Id] = msgCh
+
+	cs.mu.Unlock()
+
+	for msg := range msgCh {
+		if err := stream.Send(msg); err != nil {
+			log.Printf("error sending to user %d: %v", user.Id, err)
+			break
+		}
+	}
+
+	cs.mu.Lock()
+	delete(cs.roomStreams[room.Id], user.Id)
+	cs.mu.Unlock()
+
+	return nil
+}
+
+func (cs *ChatServiceServer) Chat(stream pb.ChatService_ChatServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			log.Println("stream receive error:", err)
+			return err
+		}
+
+		cs.mu.Lock()
+
+		sender, senderExists := cs.getUser(int(req.SenderId))
+		room, roomExists := cs.getRoom(int(req.RoomId))
+		if !senderExists || !roomExists {
+			cs.mu.Unlock()
+			continue
+		}
+
+		cs.lastMessageId++
+		msg := Message{
+			Id:     cs.lastMessageId,
+			Sender: sender,
+			Text:   req.Text,
+			Type:   Public,
+		}
+		cs.messages = append(cs.messages, msg)
+
+		for userId, ch := range cs.roomStreams[room.Id] {
+			if userId != sender.Id {
+				select {
+				case ch <- &pb.ChatResponse{
+					Text:     req.Text,
+					SenderId: int32(sender.Id),
+				}:
+				default:
+					log.Printf("dropping message for user %d (channel full)", userId)
+				}
+			}
+		}
+
+		cs.mu.Unlock()
+	}
 }
