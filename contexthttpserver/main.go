@@ -18,7 +18,6 @@ func handleProcess(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	ch := make(chan bool)
-	defer close(ch)
 
 	go longRunningTask(ch)
 
