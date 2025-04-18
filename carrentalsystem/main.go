@@ -8,9 +8,12 @@ import (
 	"crs/utils"
 	"log"
 	"sync"
+
+	"github.com/fatih/color"
 )
 
 func main() {
+	color.Green("Welcome to Car Rental System") // Just to demonstrate go mod vendor since there is no other 3rd party dependency
 	crs := crs.New()
 	if _, err := crs.AddCar(car.Car{Make: "Maruti", Model: "Alto", Year: 2020, License: "X123", Rent: 3000}); err != nil {
 		log.Println("Failed to add car:", err)
