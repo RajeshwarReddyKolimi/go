@@ -71,7 +71,7 @@ func (testDb *TestDb) GetABlog(blogId int) (Blog, error) {
 		return blog, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return blog, fmt.Errorf("blog id doesn't exist", blogId)
+		return blog, fmt.Errorf("blog id %d doesn't exist", blogId)
 	}
 	return blog, nil
 }
