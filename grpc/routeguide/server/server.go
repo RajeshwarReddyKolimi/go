@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -25,7 +24,6 @@ type RouteGuideServiceServer struct {
 }
 
 func main() {
-	flag.Parse()
 	lis, err := net.Listen("tcp", "localhost:50051")
 	if err != nil {
 		fmt.Printf("failed to listen: %v", err)
@@ -91,6 +89,7 @@ func (rgs *RouteGuideServiceServer) RecordRoute(stream pb.RouteGuideService_Reco
 		if lastPoint != nil {
 			distance += calculateDistance(lastPoint, point)
 		}
+		lastPoint = point
 	}
 }
 
@@ -126,8 +125,7 @@ func serialize(point *pb.Point) string {
 }
 
 func (s *RouteGuideServiceServer) loadFeatures() {
-	var data []byte = exampleData
-	if err := json.Unmarshal(data, &s.savedFeatures); err != nil {
+	if err := json.Unmarshal(exampleData, &s.savedFeatures); err != nil {
 		log.Fatalf("Failed to load default features: %v", err)
 	}
 }

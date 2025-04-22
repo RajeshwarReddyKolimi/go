@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -15,7 +14,6 @@ import (
 )
 
 func main() {
-	flag.Parse()
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Println("Error creating client: ", err)
@@ -37,7 +35,7 @@ func getFeature(ctx context.Context, client pb.RouteGuideServiceClient, point *p
 }
 
 func listFeatures(ctx context.Context, client pb.RouteGuideServiceClient, rect *pb.Rectangle) {
-	stream, e := client.ListFeatures(ctx, &pb.Rectangle{Lo: &pb.Point{Latitude: 400000000, Longitude: -750000000}, Hi: &pb.Point{Latitude: 420000000, Longitude: -730000000}})
+	stream, e := client.ListFeatures(ctx, rect)
 	if e != nil {
 		fmt.Println(e)
 	}
