@@ -23,13 +23,13 @@ type Blogger interface {
 
 func (testDb *TestDb) CreateBlog(blog Blog) (Blog, error) {
 	var existingBlog Blog
-	res := testDb.db.Where("title = ?", blog.Title).First(&existingBlog)
+	res := testDb.db.Where("title = ?", blog.Title).Find(&existingBlog)
 	if res.RowsAffected > 0 {
 		return existingBlog, fmt.Errorf("blog with title %s already exists", blog.Title)
 	}
 	res = testDb.db.Create(&blog)
 	if res.Error != nil {
-		return blog, res.Error
+		return Blog{}, res.Error
 	}
 	return blog, nil
 }
@@ -38,40 +38,43 @@ func (testDb *TestDb) UpdateBlog(blogId int, blog Blog) (Blog, error) {
 	var existingBlog Blog
 	res := testDb.db.First(&existingBlog, blogId)
 	if res.Error != nil {
-		return blog, res.Error
+		return Blog{}, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return existingBlog, fmt.Errorf("blog id %d doesn't exist", blogId)
+		return Blog{}, fmt.Errorf("blog id %d doesn't exist", blogId)
 	}
-	if blog.Title != "" {
-		existingBlog.Title = blog.Title
+	title := blog.Title
+	content := blog.Content
+	if blog.Title == "" {
+		title = existingBlog.Title
 	}
-	if blog.Content != "" {
-		existingBlog.Content = blog.Content
+	if blog.Content == "" {
+		content = existingBlog.Content
 	}
-	if blog.AuthorId != 0 {
-		var author Author
-		res := testDb.db.First(&author, blog.AuthorId)
-		if res.Error != nil {
-			return blog, res.Error
-		}
-		existingBlog.AuthorId = blog.AuthorId
+	updates := map[string]interface{}{
+		"title":   title,
+		"content": content,
 	}
-	res = testDb.db.Save(&existingBlog)
+	res = testDb.db.Model(&Blog{}).Where("id = ?", blogId).Updates(updates)
 	if res.Error != nil {
-		return existingBlog, res.Error
+		return Blog{}, res.Error
 	}
-	return existingBlog, nil
+	var updatedBlog Blog
+	err := testDb.db.First(&updatedBlog, blogId).Error
+	if err != nil {
+		return Blog{}, err
+	}
+	return updatedBlog, nil
 }
 
 func (testDb *TestDb) GetABlog(blogId int) (Blog, error) {
 	var blog Blog
-	res := testDb.db.First(&blog, blogId)
+	res := testDb.db.Find(&blog, blogId)
 	if res.Error != nil {
-		return blog, res.Error
+		return Blog{}, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return blog, fmt.Errorf("blog id %d doesn't exist", blogId)
+		return Blog{}, fmt.Errorf("blog id %d doesn't exist", blogId)
 	}
 	return blog, nil
 }
@@ -87,7 +90,7 @@ func (testDb *TestDb) GetBlogs() ([]Blog, error) {
 
 func (testDb *TestDb) DeleteBlog(blogId int) error {
 	var blog Blog
-	res := testDb.db.First(&blog, blogId)
+	res := testDb.db.Find(&blog, blogId)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -122,7 +125,7 @@ func (testDb *TestDb) SearchBlogs(searchBy int, name string) ([]Blog, error) {
 func (testDb *TestDb) CreateAuthor(author Author) (Author, error) {
 	res := testDb.db.Create(&author)
 	if res.Error != nil {
-		return author, res.Error
+		return Author{}, res.Error
 	}
 	return author, nil
 }
@@ -131,29 +134,39 @@ func (testDb *TestDb) UpdateAuthor(authorId int, author Author) (Author, error) 
 	var existingAuthor Author
 	res := testDb.db.First(&existingAuthor, authorId)
 	if res.Error != nil {
-		return author, res.Error
+		return Author{}, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return existingAuthor, fmt.Errorf("author id %d doesn't exist", authorId)
+		return Author{}, fmt.Errorf("author id %d doesn't exist", authorId)
 	}
-	if author.Name != "" {
-		existingAuthor.Name = author.Name
+	name := author.Name
+	if author.Name == "" {
+		name = existingAuthor.Name
 	}
-	res = testDb.db.Save(&existingAuthor)
+	updates := map[string]interface{}{
+		"name": name,
+	}
+	res = testDb.db.Model(&Author{}).Where("id = ?", authorId).Updates(updates)
 	if res.Error != nil {
-		return existingAuthor, res.Error
+		return Author{}, res.Error
 	}
-	return existingAuthor, nil
+	var updatedAuthor Author
+	err := testDb.db.First(&updatedAuthor, authorId).Error
+	if err != nil {
+		return Author{}, err
+	}
+
+	return updatedAuthor, nil
 }
 
 func (testDb *TestDb) GetAuthor(authorId int) (Author, error) {
 	var author Author
 	res := testDb.db.First(&author, authorId)
 	if res.Error != nil {
-		return author, res.Error
+		return Author{}, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return author, fmt.Errorf("author id %d doesn't exist", authorId)
+		return Author{}, fmt.Errorf("author id %d doesn't exist", authorId)
 	}
 	return author, nil
 }

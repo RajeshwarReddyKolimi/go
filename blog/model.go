@@ -12,5 +12,5 @@ type Blog struct {
 	Title    string `gorm:"not null, unique"`
 	Content  string `gorm:"not null"`
 	AuthorId uint
-	Author   Author `gorm:"foreignKey:id;references:AuthorId"`
+	Author   Author `gorm:"foreignKey:AuthorId;references:ID"`
 }
