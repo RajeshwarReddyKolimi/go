@@ -8,8 +8,11 @@ import (
 const Layout = "2006-01-02"
 
 func ParseStringToDate(date string) time.Time {
-	time, _ := time.Parse(Layout, date)
-	return time
+	parsedDate, err := time.Parse(Layout, date)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsedDate
 }
 
 func ParseDateToString(date time.Time) string {

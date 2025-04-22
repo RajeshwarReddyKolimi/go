@@ -193,10 +193,12 @@ func (crs *CarRentalSystem) MakeReservation(carId int, startTime time.Time, endT
 		if utils.GetRandomStatus() {
 			payment.Status = types.Completed
 			reservation.Status = types.Active
+			crs.Reservations[reservationId] = reservation
 		} else {
 			payment.Status = types.Failed
+			crs.Reservations[reservationId] = reservation
+			return reservation, errors.New("Payment failed")
 		}
-		crs.Reservations[reservationId] = reservation
 		return reservation, nil
 	} else {
 		return models.Reservation{}, errors.New("Car not available")
