@@ -4,6 +4,7 @@ import (
 	"crs/models"
 	"crs/types"
 	"crs/usecases/car"
+	"crs/usecases/statusgenerator"
 	"crs/utils"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ type CarRentalSystem struct {
 	lastPaymentId     int
 	mu                *sync.Mutex
 	CurrentUser       models.User
+	StatusGenerator   statusgenerator.StatusGenerator
 }
 
 type ICRS interface {
@@ -190,7 +192,7 @@ func (crs *CarRentalSystem) MakeReservation(carId int, startTime time.Time, endT
 			Payment:   payment,
 			Status:    types.Inactive,
 		}
-		if utils.GetRandomStatus() {
+		if crs.StatusGenerator.Generate() {
 			payment.Status = types.Completed
 			reservation.Status = types.Active
 			crs.Reservations[reservationId] = reservation
@@ -208,7 +210,8 @@ func (crs *CarRentalSystem) MakeReservation(carId int, startTime time.Time, endT
 func (crs *CarRentalSystem) cancelPayment(payment *models.Payment) error {
 	if payment.Id != 0 && payment.Status == types.Completed {
 		payment.Status = types.RefundPending
-		if utils.GetRandomStatus() {
+		rsg := statusgenerator.NewStatusGenerator()
+		if rsg.Generate() {
 			payment.Status = types.RefundCompleted
 			return nil
 		}
@@ -267,7 +270,8 @@ func (crs *CarRentalSystem) ModifyReservation(reservationId int, reservation mod
 	if car.IsAvailable(crs.Reservations, startTime, endTime, reservationId) {
 		if cost != existingReservation.Cost {
 			payment := existingReservation.Payment
-			if utils.GetRandomStatus() {
+			rsg := statusgenerator.NewStatusGenerator()
+			if rsg.Generate() {
 				existingReservation.CarId = carId
 				existingReservation.StartTime = startTime
 				existingReservation.EndTime = endTime
